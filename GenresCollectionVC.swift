@@ -101,6 +101,7 @@ extension GenresCollectionVC: UICollectionViewDataSource, UICollectionViewDelega
     func requestArtists(for genre: String) {
         RemotePeerManager.shared.currentArtworkTask = "artists"
         RemotePeerManager.shared.sendCommand("getArtistsForGenre:\(genre)")
+        RemotePeerManager.shared.sendCommand("getArtistArtwork:\(genre)")
     }
     
     func getBroadGenre(for genre: String) -> String? {

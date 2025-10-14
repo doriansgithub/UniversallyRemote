@@ -51,6 +51,7 @@ class AlbumDetailVC: UIViewController {
                   let newSongs = userInfo["songs"] as? [RemoteSong] else { return }
             
             self.songs = newSongs.sorted { $0.trackNumber < $1.trackNumber }
+            print("📩 [\(Date())] Songs received for album: \(albumName) — \(newSongs.count) tracks")
             self.tableView.reloadData()
         }
         loadSongsForAlbum()
@@ -71,13 +72,13 @@ class AlbumDetailVC: UIViewController {
             tableView.tableHeaderView = headerView
         }
     }
-
+    
     private func loadSongsForAlbum() {
         guard let album = album else { return }
-        
+        print("📡 [\(Date())] Requested songs for album: \(album.albumName)")
         RemotePeerManager.shared.sendCommand("getSongsForAlbum:\(album.albumName)")
-        print("📡 Requested songs for album: \(album.albumName)")
     }
+    
 }
 
 // MARK: - UITableView DataSource & Delegate

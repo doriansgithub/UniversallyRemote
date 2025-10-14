@@ -207,6 +207,7 @@ extension ArtistsCollectionVC: UICollectionViewDataSource, UICollectionViewDeleg
     func requestAlbums(for artist: String) {
         RemotePeerManager.shared.currentArtworkTask = "albums"
         RemotePeerManager.shared.sendCommand("getAlbumsForArtist:\(artist)")
+        RemotePeerManager.shared.sendCommand("getAlbumsArtworkForArtist:\(artist)")
     }
     
 }

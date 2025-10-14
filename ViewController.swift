@@ -256,15 +256,10 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
     }
     
     @IBAction func homeArtistsPressed(_ sender: Any) {
-//        RemotePeerManager.shared.cancelArtworkRequest()
-//        getAllArtists()
-//        RemotePeerManager.shared.requestAllArtistArtworks()
         getAllArtists()
     }
 
     @IBAction func homeAlbumsPressed(_ sender: Any) {
-//        RemotePeerManager.shared.cancelArtworkRequest()
-//        RemotePeerManager.shared.requestAllAlbumArtworks()
         getAllAlbums()
     }
     
@@ -304,14 +299,6 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
     }
     
     func getAllArtists() {
-//        // 🛑 Stop any ongoing transfers first
-//        RemotePeerManager.shared.cancelArtworkRequest()
-//        RemotePeerManager.shared.sendCommand("cancelBatchRequest")
-//
-//        // 🚀 Begin new batched artist loading
-//        RemotePeerManager.shared.sendCommand("getAllArtistsBatch")
-
-//        RemotePeerManager.shared.sendCommand("getArtistsForGenre:All")
         hideAllViews()
         artistsView.isHidden = false
         homeArtistsONBackground.isHidden = false
@@ -337,15 +324,6 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
     }
     
     func getAllAlbums() {
-//        // 🛑 Stop any ongoing transfers first
-//        RemotePeerManager.shared.cancelArtworkRequest()
-//        RemotePeerManager.shared.sendCommand("cancelBatchRequest")
-//
-//        // 🚀 Begin new batched album loading
-//        RemotePeerManager.shared.sendCommand("getAllAlbumsBatch")
-        
-//        RemotePeerManager.shared.sendCommand("getAllAlbums")
-        
         hideAllViews()
         albumsView.isHidden = false
         homeAlbumsONBackground.isHidden = false

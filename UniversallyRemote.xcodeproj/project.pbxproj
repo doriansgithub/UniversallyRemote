@@ -15,6 +15,8 @@
 		98953DEA2E6A4C3B00250961 /* RemotePeerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98953DE92E6A4C3B00250961 /* RemotePeerManager.swift */; };
 		98953DEC2E6A4D5400250961 /* GenresCollectionVC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98953DEB2E6A4D5400250961 /* GenresCollectionVC.swift */; };
 		98B469992E76191600C195B2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98B469982E76191600C195B2 /* SceneDelegate.swift */; };
+		98D701BB2E9EED3600E6B200 /* RemotePeerManager EXT.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D701BA2E9EED3600E6B200 /* RemotePeerManager EXT.swift */; };
+		98D701BD2E9EED8B00E6B200 /* RemotePeerManager EXT 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D701BC2E9EED8B00E6B200 /* RemotePeerManager EXT 2.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +50,8 @@
 		98953DEB2E6A4D5400250961 /* GenresCollectionVC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenresCollectionVC.swift; sourceTree = "<group>"; };
 		98B469962E76133600C195B2 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		98B469982E76191600C195B2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		98D701BA2E9EED3600E6B200 /* RemotePeerManager EXT.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RemotePeerManager EXT.swift"; sourceTree = "<group>"; };
+		98D701BC2E9EED8B00E6B200 /* RemotePeerManager EXT 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RemotePeerManager EXT 2.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -99,6 +103,8 @@
 				9859E6E62E90107A0086503D /* AlbumsCollectionVC.swift */,
 				9859E6E82E90114D0086503D /* AlbumDetailVC.swift */,
 				98953DE92E6A4C3B00250961 /* RemotePeerManager.swift */,
+				98D701BA2E9EED3600E6B200 /* RemotePeerManager EXT.swift */,
+				98D701BC2E9EED8B00E6B200 /* RemotePeerManager EXT 2.swift */,
 				98B469982E76191600C195B2 /* SceneDelegate.swift */,
 				98953DE72E6A4C1400250961 /* ViewController.swift */,
 				98184DFE2DA5849D0060BF7E /* Products */,
@@ -259,9 +265,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				98D701BB2E9EED3600E6B200 /* RemotePeerManager EXT.swift in Sources */,
 				98953DEC2E6A4D5400250961 /* GenresCollectionVC.swift in Sources */,
 				9859E6E52E900EF40086503D /* ArtistCollectionVC.swift in Sources */,
 				98953DEA2E6A4C3B00250961 /* RemotePeerManager.swift in Sources */,
+				98D701BD2E9EED8B00E6B200 /* RemotePeerManager EXT 2.swift in Sources */,
 				9859E6E92E90114D0086503D /* AlbumDetailVC.swift in Sources */,
 				98953DE82E6A4C1400250961 /* ViewController.swift in Sources */,
 				98953DE62E6A4BCE00250961 /* AppDelegate.swift in Sources */,
