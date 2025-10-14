@@ -94,6 +94,12 @@ extension GenresCollectionVC: UICollectionViewDataSource, UICollectionViewDelega
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let genre = genres[indexPath.item]
         print("🎵 Selected genre: \(genre)")
+        NotificationCenter.default.post(name: Notification.Name("RemoteRequestStarted"), object: nil)
+        requestArtists(for: genre)
+    }
+    
+    func requestArtists(for genre: String) {
+        RemotePeerManager.shared.currentArtworkTask = "artists"
         RemotePeerManager.shared.sendCommand("getArtistsForGenre:\(genre)")
     }
     

@@ -252,21 +252,17 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
     }
     
     @IBAction func homeGenrePressed(_ sender: Any) {
-        NotificationCenter.default.post(name: Notification.Name("RemoteRequestStarted"), object: nil)
         getAllGenres()
     }
     
     @IBAction func homeArtistsPressed(_ sender: Any) {
-        NotificationCenter.default.post(name: Notification.Name("RemoteRequestStarted"), object: nil)
 //        RemotePeerManager.shared.cancelArtworkRequest()
 //        getAllArtists()
 //        RemotePeerManager.shared.requestAllArtistArtworks()
         getAllArtists()
-
     }
 
     @IBAction func homeAlbumsPressed(_ sender: Any) {
-        NotificationCenter.default.post(name: Notification.Name("RemoteRequestStarted"), object: nil)
 //        RemotePeerManager.shared.cancelArtworkRequest()
 //        RemotePeerManager.shared.requestAllAlbumArtworks()
         getAllAlbums()
@@ -316,7 +312,6 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
 //        RemotePeerManager.shared.sendCommand("getAllArtistsBatch")
 
 //        RemotePeerManager.shared.sendCommand("getArtistsForGenre:All")
-        
         hideAllViews()
         artistsView.isHidden = false
         homeArtistsONBackground.isHidden = false
@@ -335,6 +330,9 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
             self.albumsCollectionVC?.currentArtistName = artist.artistName
             self.albumsCollectionVC?.updateAlbums(albums, for: artist)
             self.showLevel(.albums(artist.artistName))
+            
+            // ✅ Check artwork cache and sync missing ones
+            RemotePeerManager.shared.checkArtworkCacheAndSyncIfNeeded(allAlbums: albums)
         }
     }
     
@@ -557,7 +555,7 @@ class ViewController: UIViewController, RemotePeerManagerDelegate, UITableViewDa
 }
 
 class SplashViewController: UIViewController {
-    let logo = UIImageView(image: UIImage(named: "UniMacServerBWT"))
+    let logo = UIImageView(image: UIImage(named: "RemoteAppAppIconV4"))
     let background = UIImageView(image: UIImage(named: "AppsNebulaBackground2"))
 
     override func viewDidLoad() {
@@ -680,4 +678,5 @@ class SongResultCell: UITableViewCell {
             addButton.heightAnchor.constraint(equalToConstant: 32)
         ])
     }
+    
 }

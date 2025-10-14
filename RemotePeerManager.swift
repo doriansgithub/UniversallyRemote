@@ -14,7 +14,7 @@ protocol RemotePeerManagerDelegate: AnyObject {
     func didReceiveProgress(currentTime: Double, duration: Double)
     func didChangeConnection(connected: Bool)
     func didReceivePlaybackState(isPlaying: Bool)
-    
+   
     // Search
     func didReceiveSearchResults(_ results: [[String: Any]])
     
@@ -32,7 +32,8 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
     private(set) var discoveredPeers: [MCPeerID] = []
     private var pendingCommands: [String] = []
     private var lastState: MCSessionState?
-
+    var reconnectTimer: Timer?
+    
     var hasConnectedPeers: Bool {
         return !session.connectedPeers.isEmpty
     }
@@ -43,7 +44,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
     private var browser: MCNearbyServiceBrowser!
     private var peerID: MCPeerID!
     private(set) var isBrowsing = false
-    private var currentArtworkTask: String?
+    var currentArtworkTask: String?
     
     private func loadPeerID(name: String) -> MCPeerID {
         let key = "savedPeerID"
@@ -67,7 +68,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
         // ✅ Create the session
         session = MCSession(peer: peerID, securityIdentity: nil, encryptionPreference: .none)
         session.delegate = self
-
+        
         // ✅ Create the browser
         browser = MCNearbyServiceBrowser(peer: peerID, serviceType: "music-control")
         browser.delegate = self
@@ -77,13 +78,13 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
     
     func sendCommand(_ command: String) {
         guard let data = command.data(using: .utf8) else { return }
-
+        
         if !hasConnectedPeers {
             print("⏳ Queueing command (not connected yet): \(command)")
             pendingCommands.append(command)
             return
         }
-
+        
         do {
             try session.send(data, toPeers: session.connectedPeers, with: .reliable)
             print("📡 Sent command: \(command)")
@@ -137,36 +138,44 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
             return
         }
         lastState = state
-
+        
         print("Peer \(peerID.displayName) state: \(state.rawValue)")
         print("Connected peers (raw): \(session.connectedPeers.map { $0.displayName })")
-
+        
         // Deduplicate by displayName
         let uniquePeers = Array(Set(session.connectedPeers.map { $0.displayName }))
         print("Connected peers (unique): \(uniquePeers)")
-
+        
         DispatchQueue.main.async {
             switch state {
             case .connected:
                 self.delegate?.didChangeConnection(connected: true)
-
+                
                 // ✅ Flush queued commands when connected
-                if !self.pendingCommands.isEmpty {
-                    print("📤 Flushing \(self.pendingCommands.count) queued commands")
-                    for cmd in self.pendingCommands {
-                        self.sendCommand(cmd)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    if !self.pendingCommands.isEmpty {
+                        print("📤 Flushing \(self.pendingCommands.count) queued commands")
+                        for cmd in self.pendingCommands {
+                            self.sendCommand(cmd)
+                        }
+                        self.pendingCommands.removeAll()
+                    } else {
+                        // If no pending, start with genres after small delay
+                        self.delegate?.getAllGenres()
                     }
-                    self.pendingCommands.removeAll()
                 }
-
+                
             case .connecting:
                 print("⏳ Connecting to \(peerID.displayName)...")
                 // Optional: notify delegate/UI if you want to show "connecting" state
                 self.delegate?.didChangeConnection(connected: false)
-
+                
             case .notConnected:
                 print("❌ Disconnected from \(peerID.displayName)")
                 self.delegate?.didChangeConnection(connected: false)
+                
+                //                self.startAutoReconnectTimer()  // 🚀 start periodic check if disconnected
+                
             @unknown default:
                 print("⚠️ Unknown state: \(state.rawValue)")
                 self.delegate?.didChangeConnection(connected: false)
@@ -181,14 +190,14 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
             // 💓 Any inbound data proves we’re connected
             DispatchQueue.main.async {
                 self.delegate?.didChangeConnection(connected: true)
-
+                
                 switch type {
                 case "genres":
                     if let genres = dict["data"] as? [String] {
                         self.delegate?.didReceiveGenres(genres)
                         NotificationCenter.default.post(name: Notification.Name("RemoteRequestFinished"), object: nil)
                     }
-
+                    
                 case "artists":
                     if let arr = dict["data"] as? [[String: Any]],
                        let genre = dict["genre"] as? String {
@@ -199,16 +208,16 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                                 isPlaying: $0["isPlaying"] as? Bool ?? false
                             )
                         }
-
+                        
                         if genre.lowercased() == "all" {
                             self.delegate?.didReceiveArtists(artists, for: "All")
                         } else {
                             self.delegate?.didReceiveArtists(artists, for: genre)
                         }
-
+                        
                         NotificationCenter.default.post(name: Notification.Name("RemoteRequestFinished"), object: nil)
                     }
-
+                    
                 case "artistsBatch":
                     if let arr = dict["data"] as? [[String: Any]],
                        let genre = dict["genre"] as? String {
@@ -219,7 +228,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                                 isPlaying: $0["isPlaying"] as? Bool ?? false
                             )
                         }
-
+                        
                         if genre.lowercased() == "all" {
                             self.delegate?.didReceiveArtists(newArtists, for: "All")
                         } else {
@@ -246,7 +255,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                         }
                         print("🎨 Received \(arr.count) artist artworks")
                     }
-
+                    
                 case "artistArtwork":
                     if let artistName = dict["artistName"] as? String,
                        let b64 = dict["artworkBase64"] as? String {
@@ -268,7 +277,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                                 isPlaying: $0["isPlaying"] as? Bool ?? false
                             )
                         }
-
+                        
                         if let artistName = dict["artist"] as? String {
                             let remoteArtist = RemoteArtist(artistName: artistName, artworkBase64: nil, isPlaying: false)
                             self.delegate?.didReceiveAlbums(albums, for: remoteArtist)
@@ -276,10 +285,10 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                             let remoteArtist = RemoteArtist(artistName: "All", artworkBase64: nil, isPlaying: false)
                             self.delegate?.didReceiveAlbums(albums, for: remoteArtist)
                         }
-
+                        
                         NotificationCenter.default.post(name: Notification.Name("RemoteRequestFinished"), object: nil)
                     }
-
+                    
                 case "albumsBatch":
                     if let arr = dict["data"] as? [[String: Any]] {
                         let newAlbums = arr.map {
@@ -291,7 +300,7 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                                 isPlaying: $0["isPlaying"] as? Bool ?? false
                             )
                         }
-
+                        
                         // Append instead of replacing
                         if let artistName = dict["artist"] as? String {
                             let remoteArtist = RemoteArtist(artistName: artistName, artworkBase64: nil, isPlaying: false)
@@ -335,36 +344,36 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
                             )
                         }
                         NotificationCenter.default.post(name: Notification.Name("SongsUpdated"), object: nil,
-                            userInfo: ["albumName": albumName, "songs": songs])
+                                                        userInfo: ["albumName": albumName, "songs": songs])
                         NotificationCenter.default.post(name: Notification.Name("RemoteRequestFinished"), object: nil)
                     }
-
+                    
                 case "nowPlaying":
                     self.delegate?.didReceiveNowPlaying(dict)
-
+                    
                 case "progress":
                     if let current = dict["currentTime"] as? Double,
                        let duration = dict["duration"] as? Double {
                         self.delegate?.didReceiveProgress(currentTime: current, duration: duration)
                     }
-
+                    
                 case "playbackState":
                     if let isPlaying = dict["isPlaying"] as? Bool {
                         self.delegate?.didReceivePlaybackState(isPlaying: isPlaying)
                     }
-
+                    
                 case "searchResults":
                     if let results = dict["songs"] as? [[String: Any]] {
                         self.delegate?.didReceiveSearchResults(results)
                     } else {
                         print("⚠️ Could not parse searchResults: \(dict["songs"] ?? "nil")")
                     }
-
+                    
                 default:
                     print("⚠️ Unknown JSON type: \(type)")
                 }
             }
-
+            
         } else if let message = String(data: data, encoding: .utf8) {
             // Handle simple text commands (non-JSON)
             print("📩 Received plain message: \(message)")
@@ -409,13 +418,13 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
         currentArtworkTask = "artists"
         sendCommand("getAllArtistArtworks")
     }
-
+    
     func requestAllAlbumArtworks() {
         cancelArtworkRequest()
         currentArtworkTask = "albums"
         sendCommand("getAllAlbumArtworks")
     }
-
+    
     func cancelArtworkRequest() {
         if currentArtworkTask != nil {
             print("🛑 Cancelling artwork request: \(currentArtworkTask!)")
@@ -423,4 +432,143 @@ class RemotePeerManager: NSObject, MCNearbyServiceBrowserDelegate, MCSessionDele
         }
     }
     
+    func startAutoReconnectTimer() {
+        reconnectTimer?.invalidate()
+        reconnectTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // Only try if not connected
+            if !self.hasConnectedPeers {
+                print("🔄 Auto-reconnect check — no peers connected, restarting browser…")
+                self.browser.stopBrowsingForPeers()
+                self.browser.startBrowsingForPeers()
+            }
+        }
+        RunLoop.main.add(reconnectTimer!, forMode: .common)
+    }
+    
+    func stopAutoReconnectTimer() {
+        reconnectTimer?.invalidate()
+        reconnectTimer = nil
+    }
+    
+    // MARK: - Artwork Cache Verification
+    // MARK: - Artwork Cache Verification (Albums Only)
+    func checkArtworkCacheAndSyncIfNeeded(allAlbums: [RemoteAlbum]) {
+        DispatchQueue.global(qos: .background).async {
+            // 1️⃣ Load existing cache
+            UnifiedArtworkCache.shared.preloadFromDisk()
+            print("🧠 Album artwork cache preloaded from disk.")
+            
+            // 2️⃣ Find missing album artworks
+            let missingAlbums = allAlbums.filter { !UnifiedArtworkCache.shared.hasImage(for: $0.albumName) }
+            
+            // 3️⃣ If nothing missing, done
+            guard !missingAlbums.isEmpty else {
+                print("✅ All album artworks already cached.")
+                return
+            }
+            
+            // 4️⃣ Request missing ones from the Mac
+            DispatchQueue.main.async {
+                if missingAlbums.count > 20 {
+                    print("📡 Requesting all album artworks from Mac (batch mode)")
+                    self.sendCommand("getAllAlbumArtworks")
+                } else {
+                    print("📡 Requesting \(missingAlbums.count) missing album artworks")
+                    for album in missingAlbums {
+                        self.sendCommand("getAlbumArtwork:\(album.albumName)")
+                    }
+                }
+            }
+        }
+    }
+    
 }
+
+import UIKit
+
+// MARK: - UnifiedArtworkCache
+class UnifiedArtworkCache {
+    static let shared = UnifiedArtworkCache()
+    private let memoryCache = NSCache<NSString, UIImage>()
+    private let ioQueue = DispatchQueue(label: "artwork.disk.queue", qos: .utility)
+    
+    private init() {
+        memoryCache.countLimit = 300           // up to 300 images
+        memoryCache.totalCostLimit = 256 * 1024 * 1024 // 256 MB
+        try? FileManager.default.createDirectory(at: cacheFolder,
+                                                 withIntermediateDirectories: true)
+    }
+    
+    // MARK: - Core Paths
+    private var cacheFolder: URL {
+        let folder = FileManager.default.urls(for: .cachesDirectory,
+                                              in: .userDomainMask)[0]
+            .appendingPathComponent("ArtworkCache", isDirectory: true)
+        return folder
+    }
+    
+    // MARK: - Fetch
+    func image(for key: String) -> UIImage? {
+        // 1️⃣ Memory cache
+        if let img = memoryCache.object(forKey: key as NSString) {
+            return img
+        }
+        
+        // 2️⃣ Disk cache fallback
+        let url = cacheFolder.appendingPathComponent("\(key).jpg")
+        if FileManager.default.fileExists(atPath: url.path),
+           let img = UIImage(contentsOfFile: url.path) {
+            let cost = Int(img.size.width * img.size.height * 4)
+            memoryCache.setObject(img, forKey: key as NSString, cost: cost)
+            return img
+        }
+        
+        // 3️⃣ Missing entirely
+        return nil
+    }
+    
+    // MARK: - Save
+    func store(_ image: UIImage, for key: String) {
+        let cost = Int(image.size.width * image.size.height * 4)
+        memoryCache.setObject(image, forKey: key as NSString, cost: cost)
+        
+        ioQueue.async {
+            let url = self.cacheFolder.appendingPathComponent("\(key).jpg")
+            if let data = image.jpegData(compressionQuality: 0.6) {
+                try? data.write(to: url)
+            }
+        }
+    }
+    
+    // MARK: - Preload
+    func preloadFromDisk() {
+        ioQueue.async {
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: self.cacheFolder,
+                includingPropertiesForKeys: nil
+            ) else { return }
+            
+            var loadedCount = 0
+            for url in files where url.pathExtension == "jpg" {
+                if let img = UIImage(contentsOfFile: url.path) {
+                    let key = url.deletingPathExtension().lastPathComponent
+                    let cost = Int(img.size.width * img.size.height * 4)
+                    self.memoryCache.setObject(img, forKey: key as NSString, cost: cost)
+                    loadedCount += 1
+                }
+            }
+            print("🧠 Preloaded \(loadedCount) artworks into memory cache.")
+        }
+    }
+    
+    // MARK: - Utility
+    func hasImage(for key: String) -> Bool {
+        if memoryCache.object(forKey: key as NSString) != nil { return true }
+        let fileURL = cacheFolder.appendingPathComponent("\(key).jpg")
+        return FileManager.default.fileExists(atPath: fileURL.path)
+    }
+    
+}
+

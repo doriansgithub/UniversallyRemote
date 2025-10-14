@@ -27,6 +27,34 @@ class AlbumsCollectionVC: UIViewController {
         setupCollectionView()
         isFetchingArtwork = true
 
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("AlbumArtworkUpdated"),
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            guard let self = self,
+                  let userInfo = notif.userInfo,
+                  let albumName = userInfo["albumName"] as? String,
+                  let b64 = userInfo["artworkBase64"] as? String else { return }
+
+            if let index = self.albums.firstIndex(where: { $0.albumName == albumName }) {
+                // Update model
+                self.albums[index].artworkBase64 = b64
+
+                // ✅ Update only visible cell
+                let indexPath = IndexPath(item: index, section: 0)
+                if let cell = self.collectionView.cellForItem(at: indexPath) as? AlbumCell {
+                    if let data = Data(base64Encoded: b64),
+                       let image = UIImage(data: data) {
+                        cell.artworkView.image = image
+
+                        // ✅ Save to unified cache (memory + disk)
+                        UnifiedArtworkCache.shared.store(image, for: albumName)
+                    }
+                }
+            }
+        }
+        
         // Add long press gesture
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         collectionView.addGestureRecognizer(longPress)
@@ -132,19 +160,9 @@ extension AlbumsCollectionVC: UICollectionViewDataSource, UICollectionViewDelega
     }
     
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        let offsetY = scrollView.contentOffset.y
-        let contentHeight = scrollView.contentSize.height
-        let frameHeight = scrollView.frame.size.height
-        
-        if offsetY > contentHeight - frameHeight * 2 {
-            if currentArtistName == "All" {
-                RemotePeerManager.shared.sendCommand("getAllAlbumsBatch")
-            } else {
-                RemotePeerManager.shared.sendCommand("getAlbumsBatchForArtist:\(currentArtistName)")
-            }
-        }
+        // No need for batch fetches anymore
     }
-    
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let album = albums[indexPath.item]
         print("💿 Selected album: \(album.albumName) by \(album.artistName)")

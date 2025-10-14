@@ -37,6 +37,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationDidBecomeActive(_ application: UIApplication) {
         print("▶️ App became active again")
     }
+    
 }
 
 enum BrowseLevel {

@@ -30,6 +30,7 @@ class ArtistsCollectionVC: UIViewController {
         view.backgroundColor = .systemBackground
         setupCollectionView()
         isFetchingArtwork = true
+        
         NotificationCenter.default.addObserver(
             forName: Notification.Name("ArtistArtworkUpdated"),
             object: nil,
@@ -41,14 +42,27 @@ class ArtistsCollectionVC: UIViewController {
                   let b64 = userInfo["artworkBase64"] as? String else { return }
             
             if let index = self.artists.firstIndex(where: { $0.artistName == artistName }) {
+                // Update model for persistence
                 self.artists[index] = RemoteArtist(
                     artistName: artistName,
                     artworkBase64: b64,
                     isPlaying: self.artists[index].isPlaying
                 )
-                self.collectionView.reloadItems(at: [IndexPath(item: index, section: 0)])
+
+                // ✅ Decode once and save to unified cache (memory + disk)
+                if let data = Data(base64Encoded: b64),
+                   let image = UIImage(data: data) {
+                    UnifiedArtworkCache.shared.store(image, for: artistName)
+
+                    // ✅ Update visible cell directly (no reload, no re-request)
+                    let indexPath = IndexPath(item: index, section: 0)
+                    if let cell = self.collectionView.cellForItem(at: indexPath) as? ArtistCell {
+                        cell.iconView.image = image
+                    }
+                }
             }
         }
+        
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPressForArtist(_:)))
         collectionView.addGestureRecognizer(longPress)
 
@@ -138,6 +152,29 @@ extension ArtistsCollectionVC: UICollectionViewDataSource, UICollectionViewDeleg
         return cell
     }
     
+    // Load visible cell artwork lazily from cache
+    func collectionView(_ collectionView: UICollectionView,
+                        willDisplay cell: UICollectionViewCell,
+                        forItemAt indexPath: IndexPath) {
+        let artist = artists[indexPath.item]
+        guard let artistCell = cell as? ArtistCell else { return }
+
+        // ✅ Try to get from unified cache (memory or disk)
+        if let cached = UnifiedArtworkCache.shared.image(for: artist.artistName) {
+            artistCell.iconView.image = cached
+        } else {
+            // 🧠 Request from Mac (throttled)
+            artworkRequestQueue.async {
+                self.artworkRequestSemaphore.wait()
+                DispatchQueue.main.async {
+                    RemotePeerManager.shared.sendCommand("getArtistArtwork:\(artist.artistName)")
+                }
+                Thread.sleep(forTimeInterval: 0.1)
+                self.artworkRequestSemaphore.signal()
+            }
+        }
+    }
+    
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let offsetY = scrollView.contentOffset.y
         let contentHeight = scrollView.contentSize.height
@@ -163,7 +200,13 @@ extension ArtistsCollectionVC: UICollectionViewDataSource, UICollectionViewDeleg
 
         // ✅ Tell Mac to send albums for this artist
         NotificationCenter.default.post(name: Notification.Name("RemoteRequestStarted"), object: nil)
-        RemotePeerManager.shared.sendCommand("getAlbumsForArtist:\(artist.artistName)")
+//        RemotePeerManager.shared.sendCommand("getAlbumsForArtist:\(artist.artistName)")
+        requestAlbums(for: artist.artistName)
+    }
+    
+    func requestAlbums(for artist: String) {
+        RemotePeerManager.shared.currentArtworkTask = "albums"
+        RemotePeerManager.shared.sendCommand("getAlbumsForArtist:\(artist)")
     }
     
 }

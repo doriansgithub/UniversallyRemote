@@ -13,7 +13,7 @@ struct RemoteAlbum {
     let id: String
     let albumName: String
     let artistName: String
-    let artworkBase64: String?
+    var artworkBase64: String?
     var isPlaying: Bool
 }
 
